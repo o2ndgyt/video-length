@@ -1,55 +1,35 @@
-/*!
- * Video Length, http://tpkn.me/
- */
-const util = require('util');
-const execFile = util.promisify(require('child_process').execFile);
+/*jshint esversion: 11 */
 
-async function VideoLength(file, options = {}){
-   let result;
-   let { bin = 'MediaInfo', extended = false, giveall = false } = options;
+function VideoLength(file) {
+   let result = {
+      duration: -1,
+      size: -1
+   };
+   const { execFileSync } = require('node:child_process');
+   //install mediainfo.js
+   //npm install mediainfo.js -g
+   const child = execFileSync('mediainfo.js', [file, '-f', 'JSON']);
 
-   let { stdout } = await execFile(bin, [ '--full', '--output=JSON', file ]);
-   if(stdout){
-
-      let specs = JSON.parse(stdout);
-      let { track } = specs.media;
-      if(!track){
-         throw new TypeError('Can\'t extract video specs');
-      }
-
+   let specs = JSON.parse(child.toString());
+   if (!specs.media.track) {
+      __Log.error("Videolength : Can\'t extract video specs");
+   }
+   else {
       // General info
-      let general_specs = track.find(i => i['@type'] == 'General');
-      if(!general_specs){
-         throw new TypeError('Can\'t find "General" specs');
+      let general_specs = specs.media.track.find(i => i['@type'] == 'General');
+      if (!general_specs) {
+         __Log.error("Videolength : Can\'t find General specs");
       }
 
-      // Video track specs
-      let video_specs = track.find(i => i['@type'] == 'Video');
-      if(!video_specs){
-         throw new TypeError('Can\'t find "Video" track');
-      }
-
-      let { Duration, FrameRate, OverallBitRate, FileSize } = general_specs;
-      let { Width, Height } = video_specs;
-
-      if(extended){
+      else {
          result = {
-            duration : parseFloat(Duration),
-            width    : parseFloat(Width),
-            height   : parseFloat(Height),
-            fps      : parseFloat(FrameRate),
-            bitrate  : parseFloat(OverallBitRate),
-            size     : parseFloat(FileSize),
-         }
-      }else if(giveall){
-         result = specs;
-      }else{
-         result = parseFloat(Duration);
+            duration: parseFloat(general_specs.Duration),
+            size: parseFloat(general_specs.FileSize)
+         };
       }
-      
    }
 
-   return result
+   return result;
 }
 
 module.exports = VideoLength;
